@@ -15,11 +15,12 @@
 
 import collections
 import json
-import requests
-import uuid
 import logging
+import uuid
 
-from .errors import ResponseError, EntryCreatedError, OperationCompletionError
+import requests
+
+from .errors import EntryCreatedError, OperationCompletionError, ResponseError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -30,7 +31,7 @@ def _get_id(response):
         return _get_data(response)["id"]
     except KeyError:
         raise EntryCreatedError(
-            "No 'id' in response: {0}".format(response.text))
+                "No 'id' in response: {0}".format(response.text))
 
 
 def _get_msg(response):
@@ -38,7 +39,7 @@ def _get_msg(response):
         return _get_data(response)["msg"]
     except KeyError:
         raise OperationCompletionError(
-            "No 'msg' in response: {0}".format(response.text))
+                "No 'msg' in response: {0}".format(response.text))
 
 
 def _get_data(response):
@@ -50,7 +51,7 @@ def _get_data(response):
         raise ResponseError(error_messages[0])
     elif error_count > 1:
         raise ResponseError(
-            "\n  - ".join(["Multiple errors:"] + error_messages))
+                "\n  - ".join(["Multiple errors:"] + error_messages))
     elif not response.ok:
         response.raise_for_status()
     elif not data:
@@ -67,7 +68,7 @@ def _get_json(response):
             return {}
     except ValueError as value_error:
         raise ResponseError(
-            "Invalid response: {0}: {1}".format(value_error, response.text))
+                "Invalid response: {0}: {1}".format(value_error, response.text))
 
 
 def _get_messages(data):
@@ -76,7 +77,7 @@ def _get_messages(data):
         if "message" in ret:
             if "error_code" in ret:
                 error_messages.append(
-                    "{0}: {1}".format(ret["error_code"], ret["message"]))
+                        "{0}: {1}".format(ret["error_code"], ret["message"]))
             else:
                 error_messages.append(ret["message"])
 
@@ -137,28 +138,26 @@ class ReportPortalService(object):
     def start_launch(self, name, start_time, description=None, tags=None,
                      mode=None):
         data = {
-            "name": name,
-            "description": description,
-            "tags": tags,
-            "start_time": start_time,
-            "mode": mode
-        }
+                "name": name,
+                "description": description,
+                "tags": tags,
+                "start_time": start_time,
+                "mode": mode
+                }
         url = uri_join(self.base_url, "launch")
         r = self.session.post(url=url, json=data, verify=self.verify_ssl)
         self.launch_id = _get_id(r)
         self.stack.append(None)
-        logger.debug("start_launch - Stack: %s", self.stack)
         return self.launch_id
 
     def _finalize_launch(self, end_time, action, status):
         data = {
-            "end_time": end_time,
-            "status": status
-        }
+                "end_time": end_time,
+                "status": status
+                }
         url = uri_join(self.base_url, "launch", self.launch_id, action)
         r = self.session.put(url=url, json=data, verify=self.verify_ssl)
         self.stack.pop()
-        logger.debug("%s_launch - Stack: %s", action, self.stack)
         return _get_msg(r)
 
     def finish_launch(self, end_time, status=None):
@@ -188,14 +187,14 @@ class ReportPortalService(object):
                           for key, value in parameters.items()]
 
         data = {
-            "name": name,
-            "description": description,
-            "tags": tags,
-            "start_time": start_time,
-            "launch_id": self.launch_id,
-            "type": item_type,
-            "parameters": parameters,
-        }
+                "name": name,
+                "description": description,
+                "tags": tags,
+                "start_time": start_time,
+                "launch_id": self.launch_id,
+                "type": item_type,
+                "parameters": parameters,
+                }
         parent_item_id = self.stack[-1]
         if parent_item_id is not None:
             url = uri_join(self.base_url, "item", parent_item_id)
@@ -205,7 +204,6 @@ class ReportPortalService(object):
 
         item_id = _get_id(r)
         self.stack.append(item_id)
-        logger.debug("start_test_item - Stack: %s", self.stack)
         return item_id
 
     def finish_test_item(self, end_time, status, issue=None):
@@ -215,36 +213,33 @@ class ReportPortalService(object):
             issue = {"issue_type": "NOT_ISSUE"}
 
         data = {
-            "end_time": end_time,
-            "status": status,
-            "issue": issue,
-        }
+                "end_time": end_time,
+                "status": status,
+                "issue": issue,
+                }
         item_id = self.stack.pop()
         url = uri_join(self.base_url, "item", item_id)
         r = self.session.put(url=url, json=data, verify=self.verify_ssl)
-        logger.debug("finish_test_item - Stack: %s", self.stack)
         return _get_msg(r)
 
     def get_project_settings(self):
         url = uri_join(self.base_url, "settings")
         r = self.session.get(url=url, json={}, verify=self.verify_ssl)
-        logger.debug("settings - Stack: %s", self.stack)
         return _get_json(r)
 
     def log(self, time, message, level=None, attachment=None):
         data = {
-            "item_id": self.stack[-1] or self.launch_id,
-            "time": time,
-            "message": message,
-            "level": level,
-        }
+                "item_id": self.stack[-1] or self.launch_id,
+                "time": time,
+                "message": message,
+                "level": level,
+                }
         if attachment:
             data["attachment"] = attachment
             return self.log_batch([data])
         else:
             url = uri_join(self.base_url, "log")
             r = self.session.post(url=url, json=data, verify=self.verify_ssl)
-            logger.debug("log - Stack: %s", self.stack)
             return _get_id(r)
 
     def log_batch(self, log_data):
@@ -278,35 +273,31 @@ class ReportPortalService(object):
                 name = attachment.get("name", str(uuid.uuid4()))
                 log_item["file"] = {"name": name}
                 attachments.append(("file", (
-                    name,
-                    attachment["data"],
-                    attachment.get("mime", "application/octet-stream")
-                )))
+                        name,
+                        attachment["data"],
+                        attachment.get("mime", "application/octet-stream")
+                        )))
 
         files = [(
-            "json_request_part", (
-                None,
-                json.dumps(log_data),
-                "application/json"
-            )
-        )]
+                "json_request_part", (
+                        None,
+                        json.dumps(log_data),
+                        "application/json"
+                        )
+                )]
         files.extend(attachments)
         from reportportal_client import POST_LOGBATCH_RETRY_COUNT
         for i in range(POST_LOGBATCH_RETRY_COUNT):
             try:
                 r = self.session.post(
-                    url=url,
-                    files=files,
-                    verify=self.verify_ssl
-                )
+                        url=url,
+                        files=files,
+                        verify=self.verify_ssl
+                        )
             except KeyError:
                 if i < POST_LOGBATCH_RETRY_COUNT - 1:
                     continue
                 else:
                     raise
             break
-
-        logger.debug("log_batch - Stack: %s", self.stack)
-        logger.debug("log_batch response: %s", r.text)
-
         return _get_data(r)
